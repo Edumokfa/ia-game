@@ -4,35 +4,11 @@ import gymnasium as gym
 import jogo_env
 import pickle
 
-taxa_aprendizado = 0.2
-fator_desconto = 0.9
-epsilon_minimo = 0.1
-decrescimento_epsilon = 0.996
-passos_maximos = 100
-
 def escolher_acao(estado, ambiente, tabela_q, epsilon):
     if np.random.rand() < epsilon:
         return ambiente.action_space.sample()
     else:
         return np.argmax(tabela_q[estado])
-
-def executar_q(episodios, ambiente, treinamento=True, renderizar=False):
-    if treinamento:
-        tamanho_observacao = ambiente.observation_space.nvec
-        formato_estado = tuple(tamanho_observacao)
-        tabela_q = np.zeros(formato_estado + (ambiente.action_space.n,))
-    else:
-        with open('solucao_tabela.pkl', 'rb') as arquivo:
-            tabela_q = pickle.load(arquivo)
-
-    if treinamento:
-        treinar(episodios, ambiente, tabela_q)
-    else:
-        executar(ambiente, tabela_q)
-
-    if treinamento:
-        with open("solucao_tabela.pkl", "wb") as arquivo:
-            pickle.dump(tabela_q, arquivo)
 
 def treinar(episodios, ambiente, tabela_q):
     epsilon = 1.0
@@ -42,27 +18,25 @@ def treinar(episodios, ambiente, tabela_q):
         estado = tuple(estado)
         recompensa_total = 0
         
-        for _ in range(passos_maximos):
+        for _ in range(100):
             acao = escolher_acao(estado, ambiente, tabela_q, epsilon)
             prox_estado, recompensa, concluido, _, _, = ambiente.step(acao)
             prox_estado = tuple(prox_estado)
-            
             valor_q_atual = tabela_q[estado][acao]
             melhor_valor_q = np.max(tabela_q[prox_estado])
-            novo_valor_q = valor_q_atual + taxa_aprendizado * (recompensa + fator_desconto * melhor_valor_q - valor_q_atual)
+            novo_valor_q = valor_q_atual + 0.2 * (recompensa + 0.9 * melhor_valor_q - valor_q_atual) #isso faz alguma coisa legal que não sei explicar
             tabela_q[estado][acao] = novo_valor_q
-            
             estado = prox_estado
             recompensa_total += recompensa
             
             if concluido:
                 break
         
-        if epsilon > epsilon_minimo:
-            epsilon *= decrescimento_epsilon
-        
-        if episodio % 100 == 0:
-            print(f"Episódio: {episodio}, Recompensa Total: {recompensa_total}")
+        if epsilon > 0.1:
+            epsilon *= 0.995
+
+    print(f"Recompensa do último treino: {recompensa_total}")
+
 
 def executar(ambiente, tabela_q):
     estado, _ = ambiente.reset()
@@ -70,14 +44,13 @@ def executar(ambiente, tabela_q):
     recompensa_total = 0
 
     ambiente.render()
-    for _ in range(passos_maximos):
+    for _ in range(100):
         acao = np.argmax(tabela_q[estado])
         prox_estado, recompensa, concluido, _, _ = ambiente.step(acao)
         prox_estado = tuple(prox_estado)
         ambiente.render()
-        
-        estado = prox_estado
         recompensa_total += recompensa
+        estado = prox_estado
         
         time.sleep(1)
 
@@ -97,7 +70,16 @@ if __name__ == '__main__':
         walls_amount=2, 
     )
 
-    executar_q(1000, ambiente, treinamento=True, renderizar=False)
+    tamanho_observacao = ambiente.observation_space.nvec
+    formato_estado = tuple(tamanho_observacao)
+    tabela_q = np.zeros(formato_estado + (ambiente.action_space.n,))
+    # Inicialmente treina com 1000 casos, depois executa um caso com o ambiente treinado e exibe visualmente.
+    treinar(1000, ambiente, tabela_q)
+    with open("solucao_tabela.pkl", "wb") as arquivo:
+        pickle.dump(tabela_q, arquivo)
     
-    executar_q(1, ambiente, treinamento=False, renderizar=True)
+    with open('solucao_tabela.pkl', 'rb') as arquivo:
+        tabela_q = pickle.load(arquivo)
+    executar(ambiente, tabela_q)
+
     ambiente.close()

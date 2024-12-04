@@ -39,19 +39,19 @@ class SurvivorEnv(gym.Env):
         gridTile = self.survivor.perform_action(sv.SurvivorAction(action))
 
         reference_reward=-1
-        terminated=False
+        finish=False
         if (gridTile == sv.GridTile.DOOR.value):
             reference_reward+=-10
             if (self.survivor.supplies_collected == self.survivor.supplies_amount):
                 reference_reward += 100
-            terminated=True
+            finish=True
         elif (gridTile == sv.GridTile.ZOMBIE.value):
            reference_reward+=-100
-           terminated=True
+           finish=True
         elif (gridTile == sv.GridTile.SUPPLY.value):
            reference_reward+=10
 
-        return self._get_obs(), reference_reward, terminated, False, {}
+        return self._get_obs(), reference_reward, finish, False, {}
 
     def render(self):
         self.survivor.render()
